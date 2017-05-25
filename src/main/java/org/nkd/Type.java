@@ -1,7 +1,7 @@
 package org.nkd;
 
 /**
- * Created by NkD on 22.05.2017.
+ * @author Michal Nikodim (michal.nikodim@topmonks.com)
  */
 public enum Type {
     REPL_TEST,

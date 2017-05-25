@@ -13,7 +13,7 @@ import java.lang.reflect.Field;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Created by NkD on 22.05.2017.
+ * @author Michal Nikodim (michal.nikodim@topmonks.com)
  */
 class Utils {
 

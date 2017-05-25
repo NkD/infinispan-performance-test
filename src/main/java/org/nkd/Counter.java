@@ -3,7 +3,7 @@ package org.nkd;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Created by NkD on 23.05.2017.
+ * @author Michal Nikodim (michal.nikodim@topmonks.com)
  */
 public class Counter {
 

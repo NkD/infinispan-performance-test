@@ -16,7 +16,7 @@ import java.util.*;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * Perf test based on IspnPerfTest - https://github.com/belaban/IspnPerfTest
+ * Infinispan performance test - heavily inspired by IspnPerfTest - https://github.com/belaban/IspnPerfTest
  *
  * @author Michal Nikodim (michal.nikodim@topmonks.com)
  */
@@ -35,11 +35,13 @@ public class Test extends ReceiverAdapter {
     private final ResponseCollector<MemberResult> results = new ResponseCollector<>();
     private final Counter counter = new Counter();
 
-    private static final String infoText = "\n\n[1]-Start REPL test [2]-Start DIST test" +
+    private static final String infoText = "-------------------------------------------------------------------" +
+            "\n[1]-Start REPL test [2]-Start DIST test" +
             "\n[a]-Validate REPL cache [b]-Validate DIST cache" +
             "\n[r]-Populate REPL cache [d]-Populate DIST cache" +
             "\n[3]-View [4]-Caches sizes [c]-Clear all caches [v]-Versions" +
-            "\n[5]-Threads (%d) [6]-Keys (%,d) [7]-Time (secs) (%d) [8]-Value size (%s) [9]-Read percentage (%.2f)" +
+            "\n[5]-Threads (%d) [6]-Keys (0 - %d) [7]-Time (%d s)" +
+            "\n[8]-Value size (%s) [9]-Read ratio (%.2f)" +
             "\n[q]-Quit [X]-Quit all\n";
 
     public static void main(String[] args) {
@@ -47,7 +49,7 @@ public class Test extends ReceiverAdapter {
         Utils.jGroupsIPV4Hack();
         ClassConfigurator.add((short) 11000, MemberResult.class);
 
-        String infinispanConfig = "infinispan.xml";
+        String infinispanConfig = "ipt-infinispan.xml";
 
         Test test = null;
         try {
@@ -67,18 +69,18 @@ public class Test extends ReceiverAdapter {
         cfg = new Config();
 
         cacheManager = new DefaultCacheManager(infinispanConfig);
-        replCache = cacheManager.getCache("test-repl-cache");
-        distCache = cacheManager.getCache("test-dist-cache");
+        replCache = cacheManager.getCache("ipt-repl-cache");
+        distCache = cacheManager.getCache("ipt-dist-cache");
 
-        controlChannel = new JChannel("control-channel.xml");
+        controlChannel = new JChannel("ipt-control-channel.xml");
         controlChannel.setReceiver(this);
-        controlChannel.connect("controlChannel");
+        controlChannel.connect("ipt-control-channel");
         Utils.setMemberForRedirectedStreams(controlChannel.getAddress().toString() + ": ");
         try {
             MBeanServer server = Util.getMBeanServer();
-            JmxConfigurator.registerChannel(controlChannel, server, "controlChannel", controlChannel.getClusterName(), true);
+            JmxConfigurator.registerChannel(controlChannel, server, "ipt-control-channel", controlChannel.getClusterName(), true);
         } catch (Throwable ex) {
-            System.err.println("registering the channel in JMX failed: " + ex);
+            System.err.println("registering control channel in JMX failed: " + ex);
         }
         if (controlChannel.getView().size() > 1) {
             Address coordinator = controlChannel.getView().getMembers().get(0);
@@ -86,14 +88,14 @@ public class Test extends ReceiverAdapter {
             send(coordinator, Type.GET_CONFIG);
             cfg = configPromise.getResult(5000);
             if (cfg != null) {
-                System.out.println("Fetched config from " + coordinator + ": " + cfg);
+                System.out.println("fetched config from " + coordinator + ": " + cfg);
             } else
                 System.err.println("failed to fetch config from " + coordinator);
         }
     }
 
     public void viewAccepted(View view) {
-        System.out.println("** view accepted: " + view);
+        System.out.println("view accepted: " + view);
     }
 
     private void send(Address destination, Type type, Object... args) throws Exception {
@@ -131,7 +133,9 @@ public class Test extends ReceiverAdapter {
                     break;
                 case SET_CONFIG:
                     cfg = Util.objectFromStream(new ByteArrayDataInputStream(receiveBuffer, offset, len));
-                    System.out.println("Config changed from " + sender + ": " + cfg);
+                    if (!Objects.equals(sender, controlChannel.getAddress())) {
+                        System.out.println("Config was changed [" + cfg + "] ---> sender " + sender);
+                    }
                     break;
                 case GET_REPL_CACHE_CONTENT:
                     send(sender, Type.GET_CACHE_CONTENT_RESPONSE, getCacheContent(replCache));
@@ -148,7 +152,7 @@ public class Test extends ReceiverAdapter {
                     results.add(sender, res);
                     break;
                 case QUIT_ALL:
-                    System.out.println("-- received quitAll(): shutting down");
+                    System.out.println("received QUIT_ALL - shutting down");
                     stopEventThread();
                     break;
                 default:
@@ -164,7 +168,7 @@ public class Test extends ReceiverAdapter {
             public void run() {
                 try {
                     while (looping) {
-                        int c = Util.keyPress(String.format(infoText, cfg.numThreads, cfg.numKeys, cfg.timeSecs, Util.printBytes(cfg.valueSize), cfg.readPercentage));
+                        int c = Util.keyPress(String.format(infoText, cfg.numThreads, cfg.numKeys, cfg.timeSecs, Util.printBytes(cfg.valueSize), cfg.readRatio));
                         switch (c) {
                             case '1': //REPL benchmark
                                 startBenchmark(Type.REPL_TEST);
@@ -179,6 +183,7 @@ public class Test extends ReceiverAdapter {
                                 validateDistCache();
                                 break;
                             case 'r': { //populate REPL caches
+                                System.out.println("Populating REPL cache with keys from 0 to " + cfg.numKeys + "(numKeys) with value size " + Util.printBytes(cfg.valueSize));
                                 long start = Util.micros();
                                 for (int i = 0; i < cfg.numKeys; i++) {
                                     replCache.put((long) i, Utils.generateValue(cfg.valueSize));
@@ -188,6 +193,7 @@ public class Test extends ReceiverAdapter {
                             }
                             break;
                             case 'd': { // populate DIST CACHES
+                                System.out.println("Populating DIST cache with keys from 0 to " + cfg.numKeys + "(numKeys) with value size " + Util.printBytes(cfg.valueSize));
                                 long start = Util.micros();
                                 for (int i = 0; i < cfg.numKeys; i++) {
                                     distCache.put((long) i, Utils.generateValue(cfg.valueSize));
@@ -210,8 +216,8 @@ public class Test extends ReceiverAdapter {
                                 }
                                 break;
                             case '4': // Print caches sizes
-                                System.out.printf("-- replCache size is %d  [content size is %d]\n", replCache.size(), getCacheContent(replCache).size());
-                                System.out.printf("-- distCache size is %d  [content size is %d]\n", distCache.size(), getCacheContent(distCache).size());
+                                System.out.printf("-- REPL cache size is %d  [local content size is %d]\n", replCache.size(), getCacheContent(replCache).size());
+                                System.out.printf("-- DIST cache size is %d  [local content size is %d]\n", distCache.size(), getCacheContent(distCache).size());
                                 break;
                             case 'c': // Clear all caches
                                 replCache.clear();
@@ -223,28 +229,32 @@ public class Test extends ReceiverAdapter {
                                 System.out.printf("JGroups: %s, Infinispan: %s\n", org.jgroups.Version.printDescription(), org.infinispan.Version.printVersion());
                                 break;
                             case '5':
-                                int numThreads = Util.readIntFromStdin("Number of sender threads: ");
+                                System.out.println("Please enter number of sender threads:");
+                                int numThreads = Util.readIntFromStdin("");
                                 if (numThreads != cfg.numThreads) {
                                     cfg.numThreads = numThreads;
                                     send(null, Type.SET_CONFIG, cfg);
                                 }
                                 break;
                             case '6':
-                                int numKeys = Util.readIntFromStdin("Number of keys: ");
+                                System.out.println("Please enter number of keys:");
+                                int numKeys = Util.readIntFromStdin("");
                                 if (numKeys != cfg.numKeys) {
                                     cfg.numKeys = numKeys;
                                     send(null, Type.SET_CONFIG, cfg);
                                 }
                                 break;
                             case '7':
-                                int timeSec = Util.readIntFromStdin("Time (secs): ");
+                                System.out.println("Please enter time in seconds:");
+                                int timeSec = Util.readIntFromStdin("");
                                 if (timeSec != cfg.timeSecs) {
                                     cfg.timeSecs = timeSec;
                                     send(null, Type.SET_CONFIG, cfg);
                                 }
                                 break;
                             case '8':
-                                int messageSize = Util.readIntFromStdin("Message size: ");
+                                System.out.println("Please enter value size in bytes:");
+                                int messageSize = Util.readIntFromStdin("");
                                 if (messageSize < Global.LONG_SIZE * 3) {
                                     System.err.println("msg size must be >= " + Global.LONG_SIZE * 3);
                                 } else if (messageSize != cfg.valueSize) {
@@ -253,11 +263,12 @@ public class Test extends ReceiverAdapter {
                                 }
                                 break;
                             case '9':
-                                double percentage = Util.readDoubleFromStdin("Read percentage: ");
-                                if (percentage < 0 || percentage > 1.0) {
-                                    System.err.println("readHistogram percentage must be >= 0 or <= 1.0");
-                                } else if (percentage != cfg.readPercentage) {
-                                    cfg.readPercentage = percentage;
+                                System.out.println("Please enter read ratio (0.0 - 1.0):");
+                                double readRatio = Util.readDoubleFromStdin("");
+                                if (readRatio < 0 || readRatio > 1.0) {
+                                    System.err.println("read ratio must be >= 0.0 and <= 1.0");
+                                } else if (readRatio != cfg.readRatio) {
+                                    cfg.readRatio = readRatio;
                                     send(null, Type.SET_CONFIG, cfg);
                                 }
                                 break;
@@ -305,7 +316,7 @@ public class Test extends ReceiverAdapter {
         }
 
         long totalReqs = 0, total_time = 0, longest_time = 0;
-        Histogram getAvg = null, putAvg = null;
+        Histogram totalHistogramGet = null, totalHistogramPut = null;
         System.out.println("\n======================= " + testType + " Results: ===========================");
         for (Map.Entry<Address, MemberResult> entry : results.getResults().entrySet()) {
             Address member = entry.getKey();
@@ -314,15 +325,15 @@ public class Test extends ReceiverAdapter {
                 totalReqs += result.numGets + result.numPuts;
                 total_time += result.time;
                 longest_time = Math.max(longest_time, result.time);
-                if (getAvg == null) {
-                    getAvg = result.getAvg;
+                if (totalHistogramGet == null) {
+                    totalHistogramGet = result.histogramGet;
                 } else {
-                    getAvg.add(result.getAvg);
+                    totalHistogramGet.add(result.histogramGet);
                 }
-                if (putAvg == null) {
-                    putAvg = result.putAvg;
+                if (totalHistogramPut == null) {
+                    totalHistogramPut = result.histogramPut;
                 } else {
-                    putAvg.add(result.putAvg);
+                    totalHistogramPut.add(result.histogramPut);
                 }
             }
             System.out.println(member + ": " + result);
@@ -331,9 +342,9 @@ public class Test extends ReceiverAdapter {
         double reqsSecCluster = totalReqs / (longest_time / 1000.0);
         double throughput = reqsSecNode * cfg.valueSize;
         double throughputCluster = reqsSecCluster * cfg.valueSize;
-        System.out.println(Util.bold(String.format("\nThroughput: %.2f reqs/sec/node (%s/sec) %.2f reqs/sec/cluster (%s/sec)\nRoundtrip:  gets %s,\n            puts %s\n\n",
+        System.out.println(String.format(" \nThroughput: %.2f reqs/sec/node (%s/sec) %.2f reqs/sec/cluster (%s/sec)\nRoundtrip:  gets %s,\n            puts %s\n",
                 reqsSecNode, Util.printBytes(throughput), reqsSecCluster, Util.printBytes(throughputCluster),
-                Utils.print(getAvg), Utils.print(putAvg))));
+                Utils.print(totalHistogramGet), Utils.print(totalHistogramPut)));
     }
 
     private synchronized void startTestRunner(final Address sender, Cache<Long, byte[]> cache, Type type) {
@@ -342,7 +353,6 @@ public class Test extends ReceiverAdapter {
         else {
             testRunner = new Thread(() -> {
                 counter.reset();
-
                 try {
                     System.out.printf("Running %s for %d seconds:\n", type, cfg.timeSecs);
                     // The first call needs to be synchronous with OOB !

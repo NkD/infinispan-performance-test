@@ -1,0 +1,1 @@
+java -Dip=GLOBAL -Dlog=ipt2.log -jar ../target/infinispan-performance-test-1.0.jar

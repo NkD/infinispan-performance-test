@@ -1,1 +1,0 @@
-java -jar ../target/infinispan-performance-test-1.0.jar

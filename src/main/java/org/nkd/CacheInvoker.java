@@ -7,7 +7,7 @@ import org.jgroups.util.Util;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * Created by NkD on 22.05.2017.
+ * @author Michal Nikodim (michal.nikodim@topmonks.com)
  */
 public class CacheInvoker extends Thread{
 
@@ -44,7 +44,7 @@ public class CacheInvoker extends Thread{
             // get a random key in range [0 .. num_keys-1]
             Long key = Util.random(cfg.numKeys);
 
-            boolean isThisARead = Util.tossWeightedCoin(cfg.readPercentage);
+            boolean isThisARead = Util.tossWeightedCoin(cfg.readRatio);
             byte[] value = null;
             if (!isThisARead) {
                 value = Utils.generateValue(cfg.valueSize);

@@ -8,47 +8,47 @@ import java.io.DataOutput;
 import java.nio.ByteBuffer;
 
 /**
- * Created by NkD on 22.05.2017.
+ * @author Michal Nikodim (michal.nikodim@topmonks.com)
  */
 public class MemberResult implements Streamable {
 
     long numGets, numPuts;
     long time; // ms
-    Histogram getAvg, putAvg;
+    Histogram histogramGet, histogramPut;
 
     public MemberResult() {
         //empty constructor for deserialize
     }
 
-    MemberResult(long numGets, long numPuts, long time, Histogram getAvg, Histogram putAvg) {
+    MemberResult(long numGets, long numPuts, long time, Histogram histogramGet, Histogram histogramPut) {
         this.numGets = numGets;
         this.numPuts = numPuts;
         this.time = time;
-        this.getAvg = getAvg;
-        this.putAvg = putAvg;
+        this.histogramGet = histogramGet;
+        this.histogramPut = histogramPut;
     }
 
     public void writeTo(DataOutput out) throws Exception {
         out.writeLong(numGets);
         out.writeLong(numPuts);
         out.writeLong(time);
-        writeHistogram(getAvg, out);
-        writeHistogram(putAvg, out);
+        writeHistogram(histogramGet, out);
+        writeHistogram(histogramPut, out);
     }
 
     public void readFrom(DataInput in) throws Exception {
         numGets = in.readLong();
         numPuts = in.readLong();
         time = in.readLong();
-        getAvg = readHistogram(in);
-        putAvg = readHistogram(in);
+        histogramGet = readHistogram(in);
+        histogramPut = readHistogram(in);
     }
 
     public String toString() {
-        long total_reqs = numGets + numPuts;
-        double total_reqs_per_sec = total_reqs / (time / 1000.0);
+        long totalRequests = numGets + numPuts;
+        double totalReqsPerSec = totalRequests / (time / 1000.0);
         return String.format("%.2f reqs/sec (%d GETs, %d PUTs), avg RTT (us) = %.2f get, %.2f put",
-                total_reqs_per_sec, numGets, numPuts, getAvg.getMean(), putAvg.getMean());
+                totalReqsPerSec, numGets, numPuts, histogramGet.getMean(), histogramPut.getMean());
     }
 
     private static void writeHistogram(Histogram histogram, DataOutput out) throws Exception {

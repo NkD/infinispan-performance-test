@@ -3,7 +3,7 @@ package org.nkd;
 import java.io.Serializable;
 
 /**
- * Created by NkD on 22.05.2017.
+ * @author Michal Nikodim (michal.nikodim@topmonks.com)
  */
 class Config implements Serializable {
 
@@ -11,7 +11,7 @@ class Config implements Serializable {
     int numKeys = 100000;
     int timeSecs = 20;
     int valueSize = 1000;
-    double readPercentage = 0.5;
+    double readRatio = 0.5;
 
     @Override
     public String toString() {
@@ -19,6 +19,6 @@ class Config implements Serializable {
                 ", numKeys=" + numKeys +
                 ", timeSecs=" + timeSecs +
                 ", valueSize=" + valueSize +
-                ", readPercentage=" + readPercentage;
+                ", readRatio=" + readRatio;
     }
 }

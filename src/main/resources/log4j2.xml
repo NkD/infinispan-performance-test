@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="info" name="cluster-perf" monitorInterval="10">
+    <Properties>
+        <Property name="log">ipt.log</Property>
+    </Properties>
     <Appenders>
         <Console name="console-jgroups" target="SYSTEM_OUT">
             <PatternLayout pattern="%highlight{%date{yyyy-MM-dd HH:mm:ss.SSS} %-5level %logger - %msg%n}{FATAL=red blink, ERROR=red, WARN=yellow bold, INFO=black, DEBUG=yellow, TRACE=blue}"/>
@@ -8,9 +11,9 @@
             <PatternLayout pattern="%highlight{%date{yyyy-MM-dd HH:mm:ss.SSS} %-5level %logger - %msg%n}{FATAL=red blink, ERROR=red, WARN=cyan, INFO=cyan, DEBUG=cyan, TRACE=cyan}"/>
         </Console>
         <Console name="console-test" target="SYSTEM_OUT">
-            <PatternLayout pattern="%highlight{%date{yyyy-MM-dd HH:mm:ss.SSS} %-5level %logger - %msg%n}{ERROR=red, INFO=normal1 bold}"/>
+            <PatternLayout pattern="%date{HH:mm:ss.SSS} %-5level - %msg%n"/>
         </Console>
-        <File name="file" fileName="test.log">
+        <File name="file" fileName="${sys:log}" append="false">
             <PatternLayout>
                 <Pattern>%date{yyyy-MM-dd HH:mm:ss.SSS} %-5level %logger - %msg%n</Pattern>
             </PatternLayout>
@@ -19,11 +22,11 @@
     </Appenders>
     <Loggers>
         <Root level="off" />
-        <Logger name="org.jgroups" level="warn">
+        <Logger name="org.jgroups" level="error">
             <AppenderRef ref="console-jgroups" />
             <AppenderRef ref="file"/>
         </Logger>
-        <Logger name="org.infinispan" level="warn">
+        <Logger name="org.infinispan" level="error">
             <AppenderRef ref="console-infinispan" />
             <AppenderRef ref="file"/>
         </Logger>

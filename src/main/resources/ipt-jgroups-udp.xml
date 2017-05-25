@@ -1,7 +1,8 @@
 <config xmlns="urn:org:jgroups"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="urn:org:jgroups http://www.jgroups.org/schema/jgroups-4.0.xsd">
-    <UDP mcast_addr="239.9.9.9"
+    <UDP bind_addr="${ip}"
+         mcast_addr="239.9.9.9"
          mcast_port="45588"
          ucast_send_buf_size="1m"
          mcast_send_buf_size="1m"
